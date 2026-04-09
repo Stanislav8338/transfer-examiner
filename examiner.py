@@ -1,3 +1,5 @@
+from llm_client import call_llm
+
 def examine_transfer(amount, recipient_type, purpose):
     conclusion={}
 
@@ -45,8 +47,25 @@ def examine_transfer(amount, recipient_type, purpose):
     
     else:
         conclusion["Ошибка"]="Неизвестный тип"
+    
+    if conclusion['risk'] in ['medium','high'] and 400000<=amount<1000000:
+        try:
+            llm_result = call_llm(amount, recipient_type, purpose)
+            if llm_result.get('risk') != "Ошибка API":
+                conclusion['risk'] = llm_result['risk']
+                conclusion['reason'] = llm_result['reason']
+                conclusion['recommendation'] = llm_result['recommendation']
+                conclusion['method'] = 'llm'
+        except:
+            conclusion['method'] = 'heuristics_with_llm_error' 
     return conclusion
 
-print(examine_transfer(700000, "self_employed", "Консультационные услуги"))
-print(examine_transfer(50000, "legal", "Налоги"))
-print(examine_transfer(800000, "legal", "Оплата по договору за услуги"))
+if __name__ == "__main__":
+    test1 = examine_transfer(500000, "individual", "Оплата по счету")
+    print(test1)
+    
+    test2 = examine_transfer(50000, "individual", "Перевод другу")
+    print(test2)
+    
+    test3 = examine_transfer(700000, "legal", "Консультационные услуги")
+    print(test3)
