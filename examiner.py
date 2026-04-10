@@ -1,8 +1,19 @@
+import logging
 from llm_client import call_llm
 
-def examine_transfer(amount, recipient_type, purpose):
-    conclusion={}
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('examiner.log', encoding='utf-8')
+    ]
+)
 
+logging.info("Скрипт запущен")
+
+def examine_transfer(amount, recipient_type, purpose):
+    logging.info(f"Вызов examine_transfer: amount={amount}, type={recipient_type}, purpose={purpose}")
+    conclusion={}
     if recipient_type=="individual":
             if amount<100000 and purpose in ["", "Перевод другу", "Подарок"]:
                 conclusion['risk']='low'
@@ -49,15 +60,19 @@ def examine_transfer(amount, recipient_type, purpose):
         conclusion["Ошибка"]="Неизвестный тип"
     
     if conclusion['risk'] in ['medium','high'] and 400000<=amount<1000000:
+        logging.info(f"Вызов LLM для amount={amount}, type={recipient_type}")
         try:
             llm_result = call_llm(amount, recipient_type, purpose)
             if llm_result.get('risk') != "Ошибка API":
+                logging.debug(f"LLM ответ: risk={llm_result.get('risk')}, reason={llm_result.get('reason')[:50]}...")
                 conclusion['risk'] = llm_result['risk']
                 conclusion['reason'] = llm_result['reason']
                 conclusion['recommendation'] = llm_result['recommendation']
                 conclusion['method'] = 'llm'
-        except:
+        except Exception as e:
+            logging.error(f"Ошибка при вызове LLM для amount={amount}, type={recipient_type}, purpose={purpose}: {e}")
             conclusion['method'] = 'heuristics_with_llm_error' 
+    logging.info(f"Результат: risk={conclusion.get('risk')}, method={conclusion.get('method', 'heuristics')}")
     return conclusion
 
 if __name__ == "__main__":
