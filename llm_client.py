@@ -3,12 +3,16 @@ from dotenv import load_dotenv
 import json
 import re
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 api_key = os.getenv("GIGACHAT_CREDENTIALS")
 client = GigaChat(credentials=api_key, verify_ssl_certs=False)
 
 def call_llm(amount, recipient_type, purpose):
+    logger.info(f"Отправка запроса к GigaChat: amount={amount}, type={recipient_type}")
     conclusion={}
     system_prompt="""Ты высококвалифицированный нейроспециалист в крупном Банке по направлению финансового мониторинга.
     Твоя специализация — 115-ФЗ, положение ЦБ РФ №375-П и методические рекомендации №16-МР.
@@ -33,8 +37,10 @@ def call_llm(amount, recipient_type, purpose):
             ]
         response=client.chat({"messages": messages})
         result=parse_llm_response(response.choices[0].message.content)
+        logger.debug("Получен ответ от GigaChat")
         conclusion.update(result)
     except Exception as e:
+        logger.error(f"Ошибка при вызове GigaChat API: {e}")
         conclusion = {
         "risk": "Ошибка API",
         "reason": f"Не удалось получить ответ от LLM: {str(e)}",
@@ -46,8 +52,11 @@ def parse_llm_response(response_text):
     json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
     if json_match:
         try:
-            return json.loads(json_match.group())
+            result = json.loads(json_match.group())
+            logger.debug("JSON успешно распарсен")
+            return result
         except:
+            logger.warning("Не удалось распарсить JSON из ответа LLM")
             pass
     return {
         "risk": "Ошибка парсинга ответа модели",
